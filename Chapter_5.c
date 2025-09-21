@@ -194,7 +194,8 @@ int getchoice(char *great,char *choices[],FILE *in, FILE *out) {
     return selected;
 
 }*/
-//Version 3 
+/*
+ *Version 3 实现了清屏以及光表的移动
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -232,13 +233,13 @@ int main()
         exit(1);
     }
     tcgetattr(fileno(input),&initial_settings);
-    new_settings = initial_settings;
-    new_settings.c_lflag &= ~ICANON;
-    new_settings.c_lflag &= ~ECHO;
-    new_settings.c_cc[VMIN] = 1;
-    new_settings.c_cc[VTIME] = 0;
-    new_settings.c_lflag &= ~ISIG;
-    if(tcsetattr(fileno(input), TCSANOW, &new_settings) != 0) {
+    new_settings = initial_settings;  //修改终端属性
+    new_settings.c_lflag &= ~ICANON;//将终端在不同的接受字符处理模式之间的切换，所以这里是通过ICANON把他变成了ECHO
+    new_settings.c_lflag &= ~ECHO;//抑制键入字符的回显
+    new_settings.c_cc[VMIN] = 1; //min
+    new_settings.c_cc[VTIME] = 0;//time
+    new_settings.c_lflag &= ~ISIG;//启用信号
+    if(tcsetattr(fileno(input), TCSANOW, &new_settings) != 0) {  //立即修改TCSANOW
         fprintf(stderr,"could not set attributes\n");
     }
 
@@ -248,7 +249,7 @@ int main()
 	sleep(1);
     } while (choice != 'q');
 
-    tcsetattr(fileno(input),TCSANOW,&initial_settings);
+    tcsetattr(fileno(input),TCSANOW,&initial_settings); //变回去
     exit(0);
 }
 
@@ -264,12 +265,12 @@ int getchoice(char *greet, char *choices[], FILE *in, FILE *out)
     output_stream = out;
 
     setupterm(NULL,fileno(out), (int *)0);
-    cursor = tigetstr("cup");
-    clear = tigetstr("clear");
+    cursor = tigetstr("cup");//光标移动功能标志cup,两个参数screenrow, screencol
+    clear = tigetstr("clear");//清屏
 
     screenrow = 4;
     tputs(clear, 1, char_to_terminal);
-    tputs(tparm(cursor, screenrow, screencol), 1, char_to_terminal);
+    tputs(tparm(cursor, screenrow, screencol), 1, char_to_terminal);//移动光标   tparm用实际值替换功能标志的参数
     fprintf(out, "Choice: %s", greet);
     screenrow += 2;
     option = choices;
@@ -306,3 +307,88 @@ int char_to_terminal(int char_to_write)
     if (output_stream) putc(char_to_write, output_stream);
     return 0;
 }
+*/
+
+
+/*
+ *
+ *检测击键动作
+#include <stdio.h>
+#include <stdlib.h>
+#include<termios.h>
+#include<term.h>
+#include <curses.h>
+#include <unistd.h>
+
+static struct termios initial_settings,new_settings;
+static int peek_character = -1;
+void init_keyboard();
+void close_keyboard();
+int kbhit();
+int readch();
+
+int main() {
+    int ch=0;
+
+    init_keyboard();
+    while (ch != 'q') {
+        printf("looping\n");
+        sleep(1);
+        if (kbhit()) {
+            ch = readch();
+            printf("you hit %c\n",ch);
+        }
+    }
+
+    close_keyboard();
+    exit(0);
+}
+
+void init_keyboard() {
+    tcgetattr(0, &initial_settings);
+    new_settings = initial_settings;
+    new_settings.c_lflag &= ~ICANON;
+    new_settings.c_lflag &= ~ECHO;
+    new_settings.c_cflag &= ~ISIG;
+    new_settings.c_cc[VMIN] = 1;
+    new_settings.c_cc[VTIME] = 0;
+    tcsetattr(0, TCSANOW ,&new_settings);
+
+}
+void close_keyboard() {
+    tcsetattr(0, TCSANOW, &initial_settings);
+}
+
+int kbhit() {
+    char  ch;
+    int nread;
+
+    if (peek_character!=-1) {
+        return 1;
+    }
+    new_settings.c_cc[VMIN] =0;
+    tcsetattr(0,TCSANOW,&new_settings);
+    nread =read(0,&ch,1);
+    new_settings.c_cc[VMIN]=1;
+    tcsetattr(0,TCSANOW,&new_settings);
+
+    if (nread ==1) {
+        peek_character =ch;
+        return 1;
+    }
+    return 0;
+}
+
+int readch() {
+    char ch;
+
+    if ( peek_character!=-1 ) {
+        ch = peek_character;
+        peek_character = -1;
+        return ch;
+    }
+    read(0,&ch,1);
+    return ch;
+}
+*/
+
