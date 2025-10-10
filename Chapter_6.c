@@ -1,441 +1,568 @@
-/*
-#include <stdio.h>
-#include<curses.h>
-#include <stdlib.h>
-#include <unistd.h>
-int main(void) {
-    initscr();
-    move(5,15);
-    printw("%s","hello world");     //printw!!!!!!!!!!
-    refresh();
-
-    sleep(2);
-    endwin();
-    exit(EXIT_SUCCESS);
-}
-*/
-
-/*
- *管理基于文本的屏幕
- *
-#include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <curses.h>
 
-int main() {
 
-    const char witch_one[]="First Witch";
-    const char witch_two[]="Second Witch";
-    const char *scan_ptr;
+#define MAX_STRING (80)		
+#define MAX_ENTRY (1024)	
+
+#define MESSAGE_LINE 6		
+#define ERROR_LINE   22		
+#define Q_LINE       20		
+#define PROMPT_LINE  18		
+
+
+static char current_cd[MAX_STRING] = "\0";
+static char current_cat[MAX_STRING];
+const char *title_file = "title.cdb";
+const char *tracks_file = "tracks.cdb";
+const char *temp_file = "cdb.tmp";
+
+void clear_all_screen(void);
+void get_return(void);
+int get_confirm(void);
+int getchoice(char *greet, char *choices[]);
+void draw_menu(char *options[], int highlight, int start_row, int start_col);
+void insert_title(char *cdtitle);
+void get_string(char *string);
+void add_record(void);
+void count_cds(void);
+void find_cd(void);
+void list_tracks(void);
+void remove_tracks(void);
+void remove_cd(void);
+void update_cd(void);
+
+
+char *main_menu[] =
+{
+    "aadd new CD",
+    "ffind CD",
+    "ccount CDs and tracks in the catalog",
+    "qquit",
+    0,
+};
+
+char *extended_menu[] =
+{
+    "aadd new CD",
+    "ffind CD",
+    "ccount CDs and tracks in the catalog",
+    "llist tracks on current CD",
+    "rremove current CD",
+    "uupdate track information",
+    "qquit",
+    0,
+};
+
+int main()
+{
+    int choice;
+
     initscr();
 
-    move(5,15);
-    attron(A_BOLD);
-    printw("%s ","Macbeth");
-    attroff(A_BOLD);
-    refresh();
-    sleep(1);
+    do {
 
-    move(8,15);
-    attron(A_STANDOUT);
-    printw("%s","Thunder and Lightning");
-    attroff(A_STANDOUT);
-    refresh();
-    sleep(1);
+	choice = getchoice("Options:", current_cd[0] ? extended_menu : main_menu);
 
-    move(10,10);
-    printw("%s","When shall we three meeet again");
-    move(11,23);
-    printw("%s","In thunder Lightning ,or in rain ?");
-    move(13,10);
-    printw("%s","When the hurlyburly's done");
-    move(14,23);
-    printw("%s","When the battle's lost and won");
-    refresh();
-    sleep(1);
+	switch (choice) {
+	case 'q':
+	    break;
 
-    attron(A_DIM);
-    scan_ptr=witch_one+strlen(witch_one)-1;
-    while (scan_ptr!=witch_one) {
-        move(10,10);
-        insch(*scan_ptr--);
-    } //确定演员并将他们的名字一次一个‘’的形式插入指定位置
+	case 'a':
+	    add_record();
+	    break;
 
-    attron(A_DIM);
-    scan_ptr=witch_two+strlen(witch_two)-1;
-    while (scan_ptr!=witch_two) {
-        move(13,10);
-        insch(*scan_ptr--);
+	case 'c':
+	    count_cds();
+	    break;
+
+	case 'f':
+	    find_cd();
+	    break;
+
+	case 'l':
+	    list_tracks();
+	    break;
+
+	case 'r':
+	    remove_cd();
+	    break;
+
+	case 'u':
+	    update_cd();
+	    break;
+	}
+    } while (choice != 'q');
+
+    endwin();
+    exit(EXIT_SUCCESS);
+
+}	
+
+int getchoice(char *greet, char *choices[])
+{
+    static int selected_row = 0;
+    int max_row = 0;
+    int start_screenrow = MESSAGE_LINE, start_screencol = 10;
+    char **option;
+    int selected;
+    int key = 0;
+
+    option = choices;
+    while (*option) {
+	max_row++;
+	option++;
     }
-    attron(A_DIM);
-    refresh();
-    sleep(1);
 
-    move(LINES-1,COLS-1);
-    refresh();
-    sleep(1);
+    if (selected_row >= max_row)
+	selected_row = 0;
 
-    endwin();
-    exit(EXIT_SUCCESS);
-}
-*/
+    clear_all_screen();
+    mvprintw(start_screenrow - 2, start_screencol, greet);
 
-/*
- *键盘
- *ipmode.c
-#include <unistd.h>
-#include <stdlib.h>
-#include <curses.h>
-#include <string.h>
-
-#define PW_LEN 256
-#define NAME_LEN 256
-
-int main() {
-    char name[NAME_LEN];
-    char password[PW_LEN];
-    const char *real_password = "12323";
-    int i = 0;
-
-    initscr();
-
-    move(5, 10);
-    printw("%s", "Please login:");
-
-    move(7, 10);
-    printw("%s", "User name: ");
-    getstr(name);
-
-    move(8, 10);
-    printw("%s", "Password: ");
-    refresh();
-
+    keypad(stdscr, TRUE);
     cbreak();
     noecho();
 
-    memset(password, '\0', sizeof(password));
-    while (i < PW_LEN) {
-        password[i] = getch();
-        if (password[i] == '\n') break;
-        move(8, 20 + i);
-        addch('*');
-        refresh();
-        i++;
+    key = 0;
+    while (key != 'q' && key != KEY_ENTER && key != '\n') {
+	if (key == KEY_UP) {
+	    if (selected_row == 0)
+		selected_row = max_row - 1;
+	    else
+		selected_row--;
+	}
+	if (key == KEY_DOWN) {
+	    if (selected_row == (max_row - 1))
+		selected_row = 0;
+	    else
+		selected_row++;
+	}
+	selected = *choices[selected_row];
+	draw_menu(choices, selected_row, start_screenrow, start_screencol);
+	key = getch();
     }
+
+    keypad(stdscr, FALSE);
+    nocbreak();
     echo();
+
+    if (key == 'q')
+	selected = 'q';
+
+    return (selected);
+
+}
+
+void draw_menu(char *options[], int current_highlight, int start_row, int start_col)
+{
+    int current_row = 0;
+    char **option_ptr;
+    char *txt_ptr;
+
+    option_ptr = options;
+    while (*option_ptr) {
+	if (current_row == current_highlight) attron(A_STANDOUT);
+	txt_ptr = options[current_row];
+	txt_ptr++;
+	mvprintw(start_row + current_row, start_col, "%s", txt_ptr);
+	if (current_row == current_highlight) attroff(A_STANDOUT);
+	current_row++;
+	option_ptr++;
+    }
+
+    mvprintw(start_row + current_row + 3, start_col, "Move highlight then press Return ");
+
+    refresh();
+}
+void clear_all_screen()
+{
+    clear();
+    mvprintw(2, Q_LINE, "%s", "CD Database Application");
+    if (current_cd[0]) {
+	mvprintw(ERROR_LINE, 0, "Current CD: %s: %s\n", current_cat, current_cd);
+    }
+    refresh();
+}
+
+
+void get_return()
+{
+    int ch;
+    mvprintw(23, 0, "%s", " Press return ");
+    refresh();
+    while ((ch = getchar()) != '\n' && ch != EOF);
+}
+
+int get_confirm()
+{
+    int confirmed = 0;
+    char first_char = 'N';
+
+    mvprintw(Q_LINE, 5, "Are you sure? ");
+    clrtoeol();
+    refresh();
+
+    cbreak();
+    first_char = getch();
+    if (first_char == 'Y' || first_char == 'y') {
+	confirmed = 1;
+    }
     nocbreak();
 
-    move(11, 10);
-    if (strncmp(real_password, password, strlen(real_password)) == 0)
-        printw("%s", "Correct");
-    else printw("%s", "Wrong");
-    printw("%s", " password");
-    refresh();
-    sleep(2);
-
-    endwin();
-    exit(EXIT_SUCCESS);
+    if (!confirmed) {
+	mvprintw(Q_LINE, 1, "    Cancelled");
+	clrtoeol();
+	refresh();
+	sleep(1);
+    }
+    return confirmed;
 }
-*/
 
-/*
-#include <unistd.h>
-#include<stdlib.h>
-#include<curses.h>
-
-int main() {
-    WINDOW *new_window_ptr;
-    WINDOW *popup_window_ptr;
-    int x_loop;
-    int y_loop;
-    char a_letter = 'a';
-
-    initscr();
-    //用字符填充基本窗口,填充逻辑屏幕之后，开始刷新物理屏幕
-    move(5, 5);
-    printw("%s", "Testing multiple windows");
-    refresh();
-
-    for (y_loop = 0; y_loop < LINES - 1; y_loop++) {
-        for (x_loop = 0; x_loop < COLS - 1; x_loop++) {
-            mvwaddch(stdscr, y_loop, x_loop, a_letter);
-            a_letter++;
-            if (a_letter == 'z')
-                a_letter = 'a';
-        }
+void insert_title(char *cdtitle)
+{
+    FILE *fp = fopen(title_file, "a");
+    if (!fp) {
+	mvprintw(ERROR_LINE, 0, "cannot open CD titles database");
+    } else {
+	fprintf(fp, "%s\n", cdtitle);
+	fclose(fp);
     }
-    refresh();
-    sleep(2);
-
-    //创建窗口 10*20 并添加文本
-    new_window_ptr = newwin(10, 20, 5, 5);
-    mvwprintw(new_window_ptr, 2, 2, "%s", "Hello World");
-    mvwprintw(new_window_ptr, 5, 2, "%s", "Noticing how very long lines  wrap inside the windows");
-    wrefresh(new_window_ptr);
-    sleep(2);
-
-    //对背景窗口的内容进行修改。
-    a_letter = '0';
-    for (y_loop = 0; y_loop < LINES - 1; y_loop++) {
-        for (x_loop = 0; x_loop < COLS - 1; x_loop++) {
-            mvwaddch(new_window_ptr, y_loop, x_loop, a_letter);
-            a_letter++;
-            if (a_letter > '9')
-                a_letter = '0';
-        }
-    }
-
-    refresh();
-    sleep(2);
-
-    wrefresh(new_window_ptr);
-    sleep(2);
-
-    //把新窗口调到最前面
-    touchwin(new_window_ptr);
-    wrefresh(new_window_ptr);
-    sleep(2);
-
-    //增加另一个边框的重叠窗口
-    popup_window_ptr = newwin(10, 20, 8, 8);
-    box(popup_window_ptr, '|', '-');
-    mvwprintw(popup_window_ptr, 5, 2, "%s", "Pop up Windows");
-    wrefresh(popup_window_ptr);
-    sleep(2);
-
-    //在清屏幕和删除这两个窗口之间在屏幕上轮流显示他们
-    touchwin(popup_window_ptr);
-    wrefresh(popup_window_ptr);
-    sleep(2);
-    wclear(new_window_ptr);
-    wrefresh(new_window_ptr);
-    sleep(2);
-    delwin(new_window_ptr);
-    touchwin(new_window_ptr);
-    wrefresh(new_window_ptr);
-    sleep(2);
-    delwin(new_window_ptr);
-    touchwin(new_window_ptr);
-    refresh();
-    sleep(2);
-    endwin();
-    exit(EXIT_SUCCESS);
-    /*
-     *不对+1
-     *
-     *fghij段错误 (核心已转储) fghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstu
-    butter-july@butter-july-ASUS-Zenbook-14-UX3405MA-UX3405MA:~/CLionProjects/untitled6$ git push --set-upstream origin master
-    fatal: 不是 git 仓库（或者任何父目录）：.gitghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabc
-    butter-july@butter-july-ASUS-Zenbook-14-UX3405MA-UX3405MA:~/CLionProjects/untitled6$ nopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrs
-    tuvwx                      |wxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghij
-    klmno                      |nopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxya
-    bcdef                      |efghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopq
-    rstuv                      |uvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefgh
-    ijklm                      |lmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwx
-    yabcd                      |cdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmnopqrstuvwxyabcdefghijklmno
-            |                  |
-            |                  |
-            └-┘
-            #1#
 }
-*/
 
-/*
-#include <unistd.h>
-#include <stdlib.h>
-#include <curses.h>
+void get_string(char *string)
+{
+    int len;
 
-int main() {
-    //文本化初始窗口的显示
-    WINDOW *sub_window_ptr;
-    int x_loop;
-    int y_loop;
-    int counter;
-    char a_letter = '1';
-    initscr();
-
-    for (y_loop = 0; y_loop < LINES - 1; y_loop++) {
-        for (x_loop = 0; x_loop < COLS - 1; x_loop++) {
-            mvwaddch(stdscr, y_loop, x_loop, a_letter);
-            a_letter++;
-            if (a_letter > '9') a_letter = '1';
-        }
-    }
-    //创建新的卷动子窗口
-
-    sub_window_ptr = subwin(stdscr, 10, 20, 10, 20);
-    scrollok(sub_window_ptr, 1);
-
-    touchwin(stdscr);
-    refresh();
-    sleep(1);
-
-
-    //删除子窗口的内容，重新输出一些文字，然后刷新它
-    werase(sub_window_ptr);
-    mvwprintw(sub_window_ptr, 2, 0, "%s", "This window will now scroll");
-    wrefresh(sub_window_ptr);
-    sleep(1);
-
-    for (counter = 1; counter < 10; counter++) {
-        wprintw(sub_window_ptr, "%s", "This text is bouth wrapping and scrolling");
-        wrefresh(sub_window_ptr);
-        sleep(1);
-    }
-
-    delwin(sub_window_ptr);
-
-    touchwin(stdscr);
-    refresh();
-    sleep(1);
-
-    endwin();
-    exit(EXIT_SUCCESS);
+    wgetnstr(stdscr, string, MAX_STRING);
+    len = strlen(string);
+    if (len > 0 && string[len - 1] == '\n')
+	string[len - 1] = '\0';
 }
-*/
 
 
-/*
- *kaypad
- *
-#include<unistd.h>
-#include <stdlib.h>
-#include<curses.h>
+void add_record()
+{
+    char catalog_number[MAX_STRING];
+    char cd_title[MAX_STRING];
+    char cd_type[MAX_STRING];
+    char cd_artist[MAX_STRING];
+    char cd_entry[MAX_STRING];
 
-#define LOCAL_ESCAPE_KEY 27
+    int screenrow = MESSAGE_LINE;
+    int screencol = 10;
 
-int main() {
+    clear_all_screen();
+    mvprintw(screenrow, screencol, "Enter new CD details");
+    screenrow += 2;
+
+    mvprintw(screenrow, screencol, "Catalog Number: ");
+    get_string(catalog_number);
+    screenrow++;
+
+    mvprintw(screenrow, screencol, "      CD Title: ");
+    get_string(cd_title);
+    screenrow++;
+
+    mvprintw(screenrow, screencol, "       CD Type: ");
+    get_string(cd_type);
+    screenrow++;
+
+    mvprintw(screenrow, screencol, "        Artist: ");
+    get_string(cd_artist);
+    screenrow++;
+
+    mvprintw(15, 5, "About to add this new entry:");
+    sprintf(cd_entry, "%s,%s,%s,%s", catalog_number, cd_title, cd_type, cd_artist);
+    mvprintw(17, 5, "%s", cd_entry);
+    refresh();
+
+    move(PROMPT_LINE, 0);
+    if (get_confirm()) {
+	insert_title(cd_entry);
+	strcpy(current_cd, cd_title);
+	strcpy(current_cat, catalog_number);
+    }
+}
+
+void count_cds()
+{
+    FILE *titles_fp, *tracks_fp;
+    char entry[MAX_ENTRY];
+    int titles = 0;
+    int tracks = 0;
+
+    titles_fp = fopen(title_file, "r");
+    if (titles_fp) {
+	while (fgets(entry, MAX_ENTRY, titles_fp))
+	    titles++;
+	fclose(titles_fp);
+    }
+    tracks_fp = fopen(tracks_file, "r");
+    if (tracks_fp) {
+	while (fgets(entry, MAX_ENTRY, tracks_fp))
+	    tracks++;
+	fclose(tracks_fp);
+    }
+    mvprintw(ERROR_LINE, 0, "Database contains %d titles, with a total of %d tracks.", titles, tracks);
+    get_return();
+}
+
+void find_cd()
+{
+    char match[MAX_STRING], entry[MAX_ENTRY];
+    FILE *titles_fp;
+    int count = 0;
+    char *found, *title, *catalog;
+
+    mvprintw(Q_LINE, 0, "Enter a string to search for in CD titles: ");
+    get_string(match);
+
+    titles_fp = fopen(title_file, "r");
+    if (titles_fp) {
+	while (fgets(entry, MAX_ENTRY, titles_fp)) {
+
+	    catalog = entry;
+	    if (found = strstr(catalog, ",")) {
+		*found = 0;
+		title = found + 1;
+
+		if (found = strstr(title, ",")) {
+		    *found = '\0';
+
+		    if (found = strstr(title, match)) {
+			count++;
+			strcpy(current_cd, title);
+			strcpy(current_cat, catalog);
+		    }
+		}
+	    }
+	}
+	fclose(titles_fp);
+    }
+    if (count != 1) {
+	if (count == 0)
+	    mvprintw(ERROR_LINE, 0, "Sorry, no matching CD found. ");
+	if (count > 1)
+	    mvprintw(ERROR_LINE, 0, "Sorry, match is ambiguous: %d CDs found. ", count);
+	current_cd[0] = '\0';
+	get_return();
+    }
+}
+
+
+void remove_tracks()
+{
+    FILE *tracks_fp, *temp_fp;
+    char entry[MAX_ENTRY + 1];
+    int cat_length;
+
+    if (current_cd[0] == '\0')
+	return;
+
+    cat_length = strlen(current_cat);
+
+    tracks_fp = fopen(tracks_file, "r");
+    if (tracks_fp == (FILE *)NULL) return;
+    temp_fp = fopen(temp_file, "w");
+
+    
+
+    while (fgets(entry, MAX_ENTRY, tracks_fp)) {
+	/* Compare catalog number and copy entry if no match */
+	if (strncmp(current_cat, entry, cat_length) != 0)
+	    fputs(entry, temp_fp);
+    }
+    fclose(tracks_fp);
+    fclose(temp_fp);
+
+    unlink(tracks_file);
+    rename(temp_file, tracks_file);
+}
+
+void remove_cd()
+{
+    FILE *titles_fp, *temp_fp;
+    char entry[MAX_ENTRY];
+    int cat_length;
+
+    if (current_cd[0] == '\0')
+	return;
+
+    clear_all_screen();
+    mvprintw(PROMPT_LINE, 0, "About to remove CD %s: %s. ", current_cat, current_cd);
+    if (!get_confirm())
+	return;
+
+    cat_length = strlen(current_cat);
+
+    titles_fp = fopen(title_file, "r");
+    temp_fp = fopen(temp_file, "w");
+
+    while (fgets(entry, MAX_ENTRY, titles_fp)) {
+	if (strncmp(current_cat, entry, cat_length) != 0)
+	    fputs(entry, temp_fp);
+    }
+    fclose(titles_fp);
+    fclose(temp_fp);
+
+    unlink(title_file);
+    rename(temp_file, title_file);
+
+    remove_tracks();
+
+    current_cd[0] = '\0';
+}
+
+
+#define BOXED_LINES    11
+#define BOXED_ROWS     60
+#define BOX_LINE_POS   8
+#define BOX_ROW_POS    2
+
+
+void list_tracks()
+{
+    FILE *tracks_fp;
+    char entry[MAX_ENTRY];
+    int cat_length;
+    int lines_op = 0;
+    WINDOW *track_pad_ptr;
+    int tracks = 0;
     int key;
-    //对程序和curses库进行初始化，然后使用keypad模式
-    initscr();
-    crmode();
+    int first_line = 0;
+
+    if (current_cd[0] == '\0') {
+	mvprintw(ERROR_LINE, 0, "You must select a CD first. ", stdout);
+	get_return();
+	return;
+    }
+    clear_all_screen();
+    cat_length = strlen(current_cat);
+
+    tracks_fp = fopen(tracks_file, "r");
+    if (!tracks_fp)
+	return;
+    while (fgets(entry, MAX_ENTRY, tracks_fp)) {
+	if (strncmp(current_cat, entry, cat_length) == 0)
+	    tracks++;
+    }
+    fclose(tracks_fp);
+
+
+    
+    track_pad_ptr = newpad(tracks + 1 + BOXED_LINES, BOXED_ROWS + 1);
+    if (!track_pad_ptr)
+	return;
+
+    tracks_fp = fopen(tracks_file, "r");
+    if (!tracks_fp)
+	return;
+
+    mvprintw(4, 0, "CD Track Listing\n");
+
+    while (fgets(entry, MAX_ENTRY, tracks_fp)) {
+	
+        if (strncmp(current_cat, entry, cat_length) == 0) {
+	    mvwprintw(track_pad_ptr, lines_op++, 0, "%s", entry + cat_length + 1);
+	}
+    }
+    fclose(tracks_fp);
+
+    if (lines_op > BOXED_LINES) {
+	mvprintw(MESSAGE_LINE, 0, "Cursor keys to scroll, RETURN or q to exit");
+    } else {
+	mvprintw(MESSAGE_LINE, 0, "RETURN or q to exit");
+    }
+    wrefresh(stdscr);
     keypad(stdscr, TRUE);
+    cbreak();
+    noecho();
 
-    noecho(); //防止光标在我按下方向键时发生移动
-    clear(); //清屏
-    mvprintw(5, 5, "%s", "Ket Pad demostration,Press 'q ' to quit");
-    move(7, 5);
-    refresh();
-    key = getch();  //getch
+    key = 0;
+    while (key != 'q' && key != KEY_ENTER && key != '\n') {
+	if (key == KEY_UP) {
+	    if (first_line > 0)
+		first_line--;
+	}
+	if (key == KEY_DOWN) {
+	    if (first_line + BOXED_LINES + 1 < tracks)
+		first_line++;
+	}
 
-    while (key != ERR && key != 'q') {
-        move(7, 5);
-        clrtoeol();
+        prefresh(track_pad_ptr, first_line, 0,
+		 BOX_LINE_POS, BOX_ROW_POS,
+		 BOX_LINE_POS + BOXED_LINES, BOX_ROW_POS + BOXED_ROWS);
 
-        if ((key >= 'A' && key <= 'Z') || (key >= 'a' && key <= 'z')) {
-            printw("Key was “%c", (char) key);  //这里在输出好神奇
-        } else {
-            switch (key) {
-                case LOCAL_ESCAPE_KEY: printw("%s", "Escape key");
-                    break;
-                case KEY_END: printw("%s", "End key");
-                    break;
-                case KEY_BEG: printw("%s", "BEGINNING KEY");
-                    break;
-                case KEY_RIGHT: printw("%s", "RIGHT KEY DOWN");
-                    break;
-                case KEY_LEFT: printw("%s", "LEFT KEY DOWN");
-                    break;
-                case KEY_UP: printw("%s", "UP KEY DOWN");
-                    break;
-                case KEY_DOWN: printw("%s", "DOWN KEY DOWN");
-                    break;
-            }
-        }
-        refresh();
         key = getch();
     }
-    endwin();
-    exit(EXIT_SUCCESS);
+
+    delwin(track_pad_ptr);
+    keypad(stdscr, FALSE);
+    nocbreak();
+    echo();
 }
-*/
-/*
- *彩色显示
- *
-#include <unistd.h>
-#include<stdlib.h>
-#include<stdio.h>
-#include<curses.h>
 
-int main() {
-    int i;
+void update_cd()
+{
+    FILE *tracks_fp;
+    char track_name[MAX_STRING];
+    int len;
+    int track = 1;
+    int screen_line = 1;
+    WINDOW *box_window_ptr;
+    WINDOW *sub_window_ptr;
 
-    initscr();
+    clear_all_screen();
+    mvprintw(PROMPT_LINE, 0, "Re-entering tracks for CD. ");
+    if (!get_confirm())
+	return;
+    move(PROMPT_LINE, 0);
+    clrtoeol();
 
-    if (!has_colors()) {
-        endwin();
-        fprintf(stderr, "Error -no color support on this terminal\n");
-        exit(1);
-    }
+    remove_tracks();
 
-    if (start_color() != OK) {
-        endwin();
-        fprintf(stderr, "Error -counld not initialize colors\n");
-        exit(2);
-    }
-    clear();
-    mvprintw(5, 5, "These are %d COLORS and %d COLOR_PAIRS avaliable", COLORS, COLOR_PAIRS);
-    refresh();
-    //初始化颜色组合
-    init_pair(1,COLOR_RED,COLOR_BLUE);
-    init_pair(2,COLOR_GREEN,COLOR_BLUE);
-    init_pair(3,COLOR_CYAN,COLOR_BLUE);
-    init_pair(4,COLOR_YELLOW,COLOR_BLUE);
-    init_pair(5,COLOR_WHITE,COLOR_BLACK);
+    mvprintw(MESSAGE_LINE, 0, "Enter a blank line to finish");
 
+    tracks_fp = fopen(tracks_file, "a");
 
-    //打印出来 one by one
-    for (i = 1; i <= 4; i++) {
-        attroff(A_BOLD);
-        attrset(COLOR_PAIR(i));
-        mvprintw(5 + i, 5, "Color pair %d", i);
-        attrset(COLOR_PAIR(i)|A_BOLD);
-        mvprintw(5 + i, 25, "Color pair %d", i);
-        refresh();
-        sleep(1);
-    }
-    endwin();
-    exit(EXIT_SUCCESS);
+    box_window_ptr = subwin(stdscr, BOXED_LINES + 2, BOXED_ROWS + 2,
+			    BOX_LINE_POS - 1, BOX_ROW_POS - 1);
+    if (!box_window_ptr)
+	return;
+    box(box_window_ptr, ACS_VLINE, ACS_HLINE);
+
+    sub_window_ptr = subwin(stdscr, BOXED_LINES, BOXED_ROWS,
+			    BOX_LINE_POS, BOX_ROW_POS);
+    if (!sub_window_ptr)
+	return;
+    scrollok(sub_window_ptr, TRUE);
+    werase(sub_window_ptr);
+    touchwin(stdscr);
+
+    do {
+
+	mvwprintw(sub_window_ptr, screen_line++, BOX_ROW_POS + 2, "Track %d: ", track);
+	clrtoeol();
+	refresh();
+	wgetnstr(sub_window_ptr, track_name, MAX_STRING);
+	len = strlen(track_name);
+	if (len > 0 && track_name[len - 1] == '\n')
+	    track_name[len - 1] = '\0';
+
+	if (*track_name)
+	    fprintf(tracks_fp, "%s,%d,%s\n", current_cat, track, track_name);
+	track++;
+	if (screen_line > BOXED_LINES - 1) {
+	
+        scroll(sub_window_ptr);
+	    screen_line--;
+	}
+    } while (*track_name);
+    delwin(sub_window_ptr);
+
+    fclose(tracks_fp);
 }
-*/
-/*
- *use pad
- *
-#include <unistd.h>
-#include<stdlib.h>
-#include<curses.h>
-
-int main() {
-    WINDOW *pad_ptr;
-    int x, y;
-    int pad_lines;
-    int pad_cols;
-    char disp_char; //初始化pad结构
-
-    initscr();
-    pad_lines = LINES + 50;
-    pad_cols = COLS + 50;
-    pad_ptr = newpad(pad_lines, pad_cols);
-    disp_char = 'a';
-    //用字符填充pad结构
-    for (x = 0; x < pad_lines; x++) {
-        for (y = 0; y < pad_cols; y++) {
-            mvwaddch(pad_ptr, x, y, disp_char);
-            if (disp_char++ == 'z') {
-                disp_char = 'a';
-            } else {
-                disp_char++;
-            }
-        }
-    }
-    prefresh(pad_ptr,5,7,2,2,9,9);
-    sleep(1);
-    prefresh(pad_ptr,LINES+5,COLS+7,5,5,21,19);
-    sleep(1);
-    delwin(pad_ptr);
-    endwin();
-    exit(EXIT_SUCCESS);
-}
-*/
