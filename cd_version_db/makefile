@@ -1,4 +1,13 @@
-all: app
+CC = gcc
+CFLAGS = -g -I/usr/include/mysql
+LDFLAGS = -L/usr/lib/mysql -lmysqlclient
+TARGET = app
+SRC = main.c app_mysql.c
 
-app: app_mysql.c app_mysql.h
-	gcc -g -o app -I/usr/include/mysql app_mysql.c  -lmysqlclient -L/usr/lib/x86_64-linux-gnu
+all: $(TARGET)
+
+$(TARGET): $(SRC)
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(LDFLAGS)
+
+clean:
+	rm -f $(TARGET) *.o
