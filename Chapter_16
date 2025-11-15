@@ -1,0 +1,287 @@
+/*
+#include <gtk/gtk.h>
+
+int main (int argc, char *argv[])
+{
+    GtkWidget *window;
+
+    gtk_init(&argc, &argv);
+    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_widget_show(window);
+    gtk_main ();
+
+    return 0;
+}
+*/
+
+/*
+//回调函数
+
+#include <gtk/gtk.h>
+#include <stdio.h>
+
+static int count = 0;
+
+//按钮点击时执行的回调
+void button_clicked(GtkButton* button, gpointer data) {
+    printf("%s pressed %d time(s)\n", (char *)data, ++count);
+}
+
+int main(int argc, char *argv[]) {
+    //创建窗口和按钮
+    GtkWidget *window;
+    GtkWidget *button;
+
+    gtk_init(&argc, &argv);
+
+    window=gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    button=gtk_button_new_with_label("Hello world");
+
+    gtk_container_add(GTK_CONTAINER(window), button);
+
+    //信号绑定
+    g_signal_connect(button, "clicked", G_CALLBACK(button_clicked), "Button 1");
+
+    //绑定窗口关闭事件
+    g_signal_connect(window,"destroy",G_CALLBACK(gtk_main_quit),NULL);
+
+    //显示窗口和按钮！！
+    gtk_widget_show_all(window);
+    gtk_main();
+    return 0;
+}*/
+
+
+
+/*
+#include <gtk/gtk.h>
+
+/* "destroy" 信号：关闭程序 #1#
+void closeApp(GtkWidget *window, gpointer data)
+{
+    gtk_main_quit();
+}
+
+/* "delete-event" 信号：窗口关闭前触发，返回 TRUE 可取消关闭 #1#
+gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data)
+{
+    g_print("In delete_event\n");
+    return FALSE;   // 返回 FALSE 表示允许关闭窗口
+}
+
+int main(int argc, char *argv[])
+{
+    GtkWidget *window;
+    GtkWidget *label1, *label2, *label3;
+    GtkWidget *hbox;
+    GtkWidget *vbox;
+
+    gtk_init(&argc, &argv);
+
+    /* 创建窗口 #1#
+    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(window), "The Window Title");
+    gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
+    gtk_window_set_default_size(GTK_WINDOW(window), 300, 200);
+
+    /* 信号连接 —— GTK3 写法更简洁 #1#
+    g_signal_connect(window, "destroy", G_CALLBACK(closeApp), NULL);
+    g_signal_connect(window, "delete-event", G_CALLBACK(delete_event), NULL);
+
+    /* 创建标签 #1#
+    label1 = gtk_label_new("Label 1");
+    label2 = gtk_label_new("Label 2");
+    label3 = gtk_label_new("Label 3");
+
+    /* 创建 hbox、vbox（GTK3 用 gtk_box_new 替代） #1#
+    hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+    vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+
+    /* 在 vbox 里放入 label1、label2 #1#
+    gtk_box_pack_start(GTK_BOX(vbox), label1, TRUE, FALSE, 5);
+    gtk_box_pack_start(GTK_BOX(vbox), label2, TRUE, FALSE, 5);
+
+    /* 在 hbox 里放入 vbox 和 label3 #1#
+    gtk_box_pack_start(GTK_BOX(hbox), vbox, FALSE, FALSE, 5);
+    gtk_box_pack_start(GTK_BOX(hbox), label3, FALSE, FALSE, 5);
+
+    /* 把 hbox 作为根容器加到窗口里 #1#
+    gtk_container_add(GTK_CONTAINER(window), hbox);
+
+    gtk_widget_show_all(window);
+    gtk_main();
+
+    return 0;
+}
+*/
+
+/*
+ *
+ *
+#include <gtk/gtk.h>
+#include <stdio.h>
+#include <string.h>
+
+const char *password ="secret";
+
+void closeAPP(GtkWidget *widget, gpointer data) {
+    gtk_main_quit();
+}
+
+void button_clicked(GtkWidget *button,gpointer data) {
+    GtkWidget *entry =GTK_WIDGET(data);
+    const char *password_text =gtk_entry_get_text(GTK_ENTRY(entry));
+
+    if (strcmp(password_text,password)==0)
+        g_print("Access granted！\n");
+    else
+        g_print("Access denied!");
+}
+
+int main(int argc, char *argv[]) {
+    GtkWidget *window;
+    GtkWidget *username_label, *password_label;
+    GtkWidget *username_entry, *password_entry;
+    GtkWidget *ok_button;
+    GtkWidget *hbox1, *hbox2;
+    GtkWidget *vbox;
+
+    gtk_init(&argc, &argv);
+    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(window), "GtkEnrtyBox");
+    gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
+    gtk_window_set_default_size(GTK_WINDOW(window), 200,200);
+
+    g_signal_connect(window,"destroy",G_CALLBACK(closeAPP),NULL);
+
+
+//标签
+    username_label = gtk_label_new("Login:");
+    password_label = gtk_label_new("Password:");
+//输入框
+    username_entry = gtk_entry_new();
+    password_entry = gtk_entry_new();
+
+    //密码模式：隐藏字符
+    gtk_entry_set_visibility(GTK_ENTRY(username_entry), FALSE);
+
+    ok_button=gtk_button_new_with_label("ok");
+
+    //按钮点击的时候传递password_entry作为data
+    g_signal_connect(ok_button, "clicked", G_CALLBACK(button_clicked), password_entry);
+
+
+    hbox1 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+    hbox2 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+    vbox  = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+
+    //登录标签 + 输入框
+    gtk_box_pack_start(GTK_BOX(hbox1), username_label, TRUE, FALSE, 5);
+    gtk_box_pack_start(GTK_BOX(hbox1), username_entry, TRUE, FALSE, 5);
+
+    //密码标签+输入框
+    gtk_box_pack_start(GTK_BOX(hbox2), password_label, TRUE, FALSE, 5);
+    gtk_box_pack_start(GTK_BOX(hbox2), password_entry, TRUE, FALSE, 5);
+
+    gtk_box_pack_start(GTK_BOX(vbox), hbox1, FALSE, FALSE, 5);
+    gtk_box_pack_start(GTK_BOX(vbox), hbox2, FALSE, FALSE, 5);
+    gtk_box_pack_start(GTK_BOX(vbox), ok_button, FALSE, FALSE, 5);
+
+    gtk_container_add(GTK_CONTAINER(window), vbox);
+
+    gtk_widget_show_all(window);
+    gtk_main();
+
+    return 0;
+}
+*/
+/*
+//各种类型的button
+#include <gtk/gtk.h>
+#include <stdio.h>
+
+GtkWidget *togglebutton;
+GtkWidget *checkbutton;
+GtkWidget *radiobutton1, *radiobutton2;
+
+void closeApp(GtkWidget *window, gpointer data)
+{
+    gtk_main_quit();
+}
+
+//标签 ，控件 ，水平拼成一行，然后加入容器
+void add_widget_with_label(GtkContainer *box, const gchar *caption, GtkWidget *widget)
+{
+    GtkWidget *label = gtk_label_new(caption);
+
+    GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+
+    gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 2);
+    gtk_box_pack_start(GTK_BOX(hbox), widget, TRUE, TRUE, 2);
+
+    gtk_container_add(box, hbox);
+}
+
+//打印按钮是不是active
+void print_active(const char *button_name, GtkToggleButton *button)
+{
+    gboolean active = gtk_toggle_button_get_active(button);
+    printf("%s is %s\n", button_name, active ? "active" : "not active");
+}
+
+
+//点击ok触发
+void button_clicked(GtkWidget *button, gpointer data)
+{
+    print_active("Checkbutton", GTK_TOGGLE_BUTTON(checkbutton));
+    print_active("Togglebutton", GTK_TOGGLE_BUTTON(togglebutton));
+    print_active("Radiobutton1", GTK_TOGGLE_BUTTON(radiobutton1));
+    print_active("Radiobutton2", GTK_TOGGLE_BUTTON(radiobutton2));
+    printf("\n");
+}
+
+
+int main(int argc, char *argv[]) {
+    GtkWidget *window;
+    GtkWidget *button;
+    GtkWidget *vbox;
+
+    gtk_init(&argc, &argv);
+
+    //主窗口
+    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_default_size(GTK_WINDOW(window), 200, 200);
+    gtk_window_set_title(GTK_WINDOW(window), "Toggle Buttons");
+
+
+    g_signal_connect(window, "destroy", G_CALLBACK(closeApp), NULL);
+
+    //各类按钮
+    button = gtk_button_new_with_label("Ok");
+    togglebutton = gtk_toggle_button_new_with_label("Toggle");
+    checkbutton = gtk_check_button_new();
+
+    //单选项按钮
+    radiobutton1 = gtk_radio_button_new(NULL);
+    radiobutton2=gtk_radio_button_new_from_widget(GTK_RADIO_BUTTON(radiobutton1));
+
+    vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+
+    add_widget_with_label(GTK_CONTAINER(vbox), "ToggleButton:", togglebutton);
+    add_widget_with_label(GTK_CONTAINER(vbox), "CheckButton:", checkbutton);
+    add_widget_with_label(GTK_CONTAINER(vbox), "Radio 1:", radiobutton1);
+    add_widget_with_label(GTK_CONTAINER(vbox), "Radio 2:", radiobutton2);
+    add_widget_with_label(GTK_CONTAINER(vbox), "Button:", button);
+
+    g_signal_connect(button, "clicked", G_CALLBACK(button_clicked), NULL);
+
+    gtk_container_add(GTK_CONTAINER(window), vbox);
+
+    gtk_widget_show_all(window);
+    gtk_main();
+
+    return 0;
+}
+*/
+
+
